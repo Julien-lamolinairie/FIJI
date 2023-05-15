@@ -1,0 +1,50 @@
+/*
+* Macro pour compter l'aire des bulles sur plusieurs images.
+*/
+
+#@File(label = "Input directory", style = "directory") input
+#@File(label = "Output directory", style = "directory") output
+#@String(label = "File suffix", value = ".png") suffix
+
+
+processFolder(input);	
+// fonction pour scanner les dossiers/sous-dossiers/fichiers pour trouver tous les fichers avec le bon format
+function processFolder(input) {
+	list = getFileList(input);
+	for (i = 0; i < list.length; i++) {
+		if(File.isDirectory(input + File.separator + list[i]))
+			processFolder("" + input + File.separator + list[i]);
+		if(endsWith(list[i], suffix))
+			processFile(input, output, list[i]);
+	}
+	//Sauvegarder les résultats dans un fichier unique
+	//saveAs("Results", output + "/All_Results.csv"); 
+
+function processFile(input, output, file) {
+	setBatchMode(true); // empêche l'ouverture des fenêtres d'image pendant l'exécution du script 
+	// ouverture d'images via Bio-Formats
+	run("Bio-Formats", "open=[" + input + "/" + file +"] autoscale color_mode=Default rois_import=[ROI manager] view=Hyperstack stack_order=XYCZT");
+    id = getImageID(); // obtenir l'id de l'image de base
+	run("Duplicate...", " "); // dupliquer cette image pour travailler sur sa copie
+    img1=getTitle();
+    
+    run("Convert to Mask", "method=Default background=Dark");
+    //run("Invert LUT");
+
+	run("8-bit");
+	run("Invert LUT");
+    run("Analyze Particles...", "size=10-infinity exclude add");
+    selectImage(id); // activer l'image de base
+    roiManager("Show All with labels"); // overlay ROIs
+	roiManager("Deselect");
+	roiManager("Measure"); // measure on original image
+	saveAs("Results", output + "/"+file+"_All_Results.csv"); 
+	run("Clear Results");
+	// save ROIs for current image
+	roiManager("Deselect");
+	roiManager("Save", output+ "/" + file + "_ROI.zip"); // saves Rois zip file
+	roiManager("Deselect");
+	roiManager("Delete"); // clear ROI Manager for next image
+}
+
+
